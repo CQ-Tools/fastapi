@@ -171,13 +171,6 @@ def _get_model_config(model: BaseModel) -> Any:
     return model.model_config
 
 
-def _has_computed_fields(field: ModelField) -> bool:
-    computed_fields = field._type_adapter.core_schema.get("schema", {}).get(
-        "computed_fields", []
-    )
-    return len(computed_fields) > 0
-
-
 def get_schema_from_model_field(
     *,
     field: ModelField,
@@ -187,9 +180,12 @@ def get_schema_from_model_field(
     ],
     separate_input_output_schemas: bool = True,
 ) -> Dict[str, Any]:
+    computed_fields = field._type_adapter.core_schema.get("schema", {}).get(
+        "computed_fields", []
+    )
     override_mode: Union[Literal["validation"], None] = (
         None
-        if (separate_input_output_schemas or _has_computed_fields(field))
+        if (separate_input_output_schemas or len(computed_fields) > 0)
         else "validation"
     )
     # This expects that GenerateJsonSchema was already used to generate the definitions
@@ -212,7 +208,15 @@ def get_definitions(
     Dict[Tuple[ModelField, Literal["validation", "serialization"]], JsonSchemaValue],
     Dict[str, Dict[str, Any]],
 ]:
+    has_computed_fields: bool = any(
+        field._type_adapter.core_schema.get("schema", {}).get("computed_fields", [])
+        for field in fields
+    )
+
     schema_generator = GenerateJsonSchema(ref_template=REF_TEMPLATE)
+    override_mode: Union[Literal["validation"], None] = (
+        None if (separate_input_output_schemas or has_computed_fields) else "validation"
+    )
     validation_fields = [field for field in fields if field.mode == "validation"]
     serialization_fields = [field for field in fields if field.mode == "serialization"]
     flat_validation_models = get_flat_models_from_fields(
@@ -242,16 +246,9 @@ def get_definitions(
     unique_flat_model_fields = {
         f for f in flat_model_fields if f.type_ not in input_types
     }
+
     inputs = [
-        (
-            field,
-            (
-                field.mode
-                if (separate_input_output_schemas or _has_computed_fields(field))
-                else "validation"
-            ),
-            field._type_adapter.core_schema,
-        )
+        (field, override_mode or field.mode, field._type_adapter.core_schema)
         for field in list(fields) + list(unique_flat_model_fields)
     ]
     field_mapping, definitions = schema_generator.generate_definitions(inputs=inputs)
