@@ -110,8 +110,6 @@ class Dependant:
             _impartial(self.call)
         ) or inspect.isgeneratorfunction(_unwrapped_call(self.call)):
             return True
-        if inspect.isclass(_unwrapped_call(self.call)):
-            return False
         dunder_call = getattr(_impartial(self.call), "__call__", None)  # noqa: B004
         if dunder_call is None:
             return False  # pragma: no cover
@@ -136,8 +134,6 @@ class Dependant:
             _impartial(self.call)
         ) or inspect.isasyncgenfunction(_unwrapped_call(self.call)):
             return True
-        if inspect.isclass(_unwrapped_call(self.call)):
-            return False
         dunder_call = getattr(_impartial(self.call), "__call__", None)  # noqa: B004
         if dunder_call is None:
             return False  # pragma: no cover
@@ -166,8 +162,6 @@ class Dependant:
             _unwrapped_call(self.call)
         ):
             return True
-        if inspect.isclass(_unwrapped_call(self.call)):
-            return False
         dunder_call = getattr(_impartial(self.call), "__call__", None)  # noqa: B004
         if dunder_call is None:
             return False  # pragma: no cover
@@ -182,6 +176,7 @@ class Dependant:
             _impartial(dunder_unwrapped_call)
         ) or iscoroutinefunction(_unwrapped_call(dunder_unwrapped_call)):
             return True
+        # if inspect.isclass(self.call): False, covered by default return
         return False
 
     @cached_property
